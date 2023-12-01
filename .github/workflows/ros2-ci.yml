@@ -16,6 +16,12 @@ jobs:
           - docker-image: "ubuntu:22.04"
             gz-version: "garden"
             ros-distro: "iron"
+            gz-version: "harmonic"
+            ros-distro: "humble"
+          - docker-image: "ubuntu:22.04"
+            ros-distro: "rolling"
+          - docker-image: "ubuntu:22.04"
+            gz-version: "harmonic"
     container:
       image: ${{ matrix.docker-image }}
     steps:

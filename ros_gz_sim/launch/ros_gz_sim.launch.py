@@ -15,10 +15,12 @@
 """Launch gzsim + ros_gz_bridge in a component container."""
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
-from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, TextSubstitution
-from launch_ros.substitutions import FindPackageShare
+from launch.actions import DeclareLaunchArgument, GroupAction
+from launch.conditions import IfCondition
+from launch.substitutions import (
+    LaunchConfiguration, TextSubstitution, PythonExpression)
+from launch_ros.actions import ComposableNodeContainer, Node
+from launch_ros.descriptions import ComposableNode
 
 
 def generate_launch_description():
@@ -71,27 +73,54 @@ def generate_launch_description():
         description='SDF world string'
     )
 
-    bridge_description = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            [PathJoinSubstitution([FindPackageShare('ros_gz_bridge'),
-                                   'launch',
-                                   'ros_gz_bridge.launch.py'])]),
-        launch_arguments=[('config_file', config_file),
-                          ('container_name', container_name),
-                          ('namespace', namespace),
-                          ('use_composition', use_composition),
-                          ('use_respawn', use_respawn),
-                          ('bridge_log_level', bridge_log_level)])
+    load_nodes = GroupAction(
+        condition=IfCondition(PythonExpression(['not ', use_composition])),
+        actions=[
+            Node(
+                package='ros_gz_bridge',
+                executable='bridge_node',
+                output='screen',
+                respawn=use_respawn,
+                respawn_delay=2.0,
+                parameters=[{'config_file': config_file}],
+            ),
+            Node(
+                condition=IfCondition(PythonExpression(['not ', use_composition])),
+                package='ros_gz_sim',
+                executable='gzserver',
+                output='screen',
+                parameters=[{'world_sdf_file': world_sdf_file,
+                            'world_sdf_string': world_sdf_string}],
+            )
+        ],
+    )
 
-    gz_server_description = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            [PathJoinSubstitution([FindPackageShare('ros_gz_sim'),
-                                   'launch',
-                                   'gz_server.launch.py'])]),
-        launch_arguments=[('world_sdf_file', world_sdf_file),
-                          ('world_sdf_string', world_sdf_string),
-                          ('use_composition', use_composition), ])
-
+    composable_nodes = ComposableNodeContainer(
+        condition=IfCondition(use_composition),
+        name=container_name,
+        namespace=namespace,
+        package='rclcpp_components',
+        executable='component_container_mt',
+        composable_node_descriptions=[
+            ComposableNode(
+                package='ros_gz_sim',
+                plugin='ros_gz_sim::GzServer',
+                name='gz_server',
+                parameters=[{'world_sdf_file': world_sdf_file,
+                             'world_sdf_string': world_sdf_string}],
+                extra_arguments=[{'use_intra_process_comms': True}],
+            ),
+            ComposableNode(
+                package='ros_gz_bridge',
+                plugin='ros_gz_bridge::RosGzBridge',
+                name='ros_gz_bridge',
+                parameters=[{'config_file': config_file}],
+                extra_arguments=[{'use_intra_process_comms': True,
+                                  'output': 'screen'}],
+            ),
+        ],
+        output='screen',
+    )
     # Create the launch description and populate
     ld = LaunchDescription()
 
@@ -105,7 +134,7 @@ def generate_launch_description():
     ld.add_action(declare_world_sdf_file_cmd)
     ld.add_action(declare_world_sdf_string_cmd)
     # Add the actions to launch all of the bridge + gz_server nodes
-    ld.add_action(bridge_description)
-    ld.add_action(gz_server_description)
+    ld.add_action(load_nodes)
+    ld.add_action(composable_nodes)
 
     return ld

@@ -65,6 +65,7 @@ bool BridgeHandleGzToRos::HasSubscriber() const
 
 void BridgeHandleGzToRos::StartSubscriber()
 {
+  std::cout << "Creating gz subscriber " << this->config_.gz_topic_name << std::endl;
   // Start Gazebo subscriber
   this->factory_->create_gz_subscriber(
     this->gz_node_,

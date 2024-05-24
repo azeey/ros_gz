@@ -18,7 +18,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, GroupAction
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, PythonExpression
-from launch_ros.actions import ComposableNodeContainer, Node
+from launch_ros.actions import LoadComposableNodes, Node
 from launch_ros.descriptions import ComposableNode
 
 
@@ -74,22 +74,21 @@ def generate_launch_description():
         ],
     )
 
-    load_composable_nodes = ComposableNodeContainer(
+    load_composable_nodes = GroupAction(
         condition=IfCondition(use_composition),
-        name=container_name,
-        namespace=namespace,
-        package='rclcpp_components',
-        executable='component_container',
-        composable_node_descriptions=[
-            ComposableNode(
-                package='ros_gz_bridge',
-                plugin='ros_gz_bridge::RosGzBridge',
-                name='ros_gz_bridge',
-                parameters=[{'config_file': config_file}],
-                extra_arguments=[{'use_intra_process_comms': True}],
-            ),
-        ],
-        output='screen',
+        actions=[LoadComposableNodes(
+            target_container=container_name,
+            composable_node_descriptions=[
+                ComposableNode(
+                    package='ros_gz_bridge',
+                    plugin='ros_gz_bridge::RosGzBridge',
+                    name='ros_gz_bridge',
+                    parameters=[{'config_file': config_file}],
+                    extra_arguments=[{'use_intra_process_comms': True,
+                                      'output': 'screen'}],
+                ),
+            ],
+        )]
     )
 
     # Create the launch description and populate

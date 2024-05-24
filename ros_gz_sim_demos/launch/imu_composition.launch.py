@@ -19,60 +19,28 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.actions import IncludeLaunchDescription
-from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration
-
-from launch_ros.actions import Node
 
 
 def generate_launch_description():
 
     pkg_ros_gz_sim = get_package_share_directory('ros_gz_sim')
+    pkg_ros_gz_sim_demos = get_package_share_directory('ros_gz_sim_demos')
 
     gz_sim = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(pkg_ros_gz_sim, 'launch', 'gz_sim.launch.py')),
+            os.path.join(pkg_ros_gz_sim, 'launch', 'ros_gz_sim.launch.py')),
         launch_arguments={
-            'gz_args': '-s -r sensors.sdf'
+            'world_sdf_file': 'sensors.sdf',
+            'config_file': os.path.join(pkg_ros_gz_sim_demos,
+                                        'config', 'imu.yaml'),
         }.items(),
-    )
-
-    # RQt
-    rqt = Node(
-        package='rqt_topic',
-        executable='rqt_topic',
-        arguments=['-t'],
-        condition=IfCondition(LaunchConfiguration('rqt'))
-    )
-
-    # RViz
-    # FIXME: Add once there's an IMU display for RViz2
-    # pkg_ros_gz_sim_demos = get_package_share_directory('ros_gz_sim_demos')
-    # rviz = Node(
-    #     package='rviz2',
-    #     executable='rviz2',
-    #     # arguments=['-d', os.path.join(pkg_ros_gz_sim_demos, 'rviz', 'imu.rviz')],
-    #     condition=IfCondition(LaunchConfiguration('rviz'))
-    # )
-
-    # Bridge
-    bridge = Node(
-        package='ros_gz_bridge',
-        executable='parameter_bridge',
-        arguments=['/imu@sensor_msgs/msg/Imu@gz.msgs.IMU'],
-        output='screen'
     )
 
     return LaunchDescription([
         gz_sim,
         DeclareLaunchArgument(
-            'rqt', default_value='true', description='Open RQt.'
-        ),
-        DeclareLaunchArgument(
             'rviz', default_value='true', description='Open RViz.'
         ),
-        bridge,
-        rqt
         # rviz
     ])
